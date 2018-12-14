@@ -55,7 +55,7 @@ class SocketClient(object):
             print("发送出错")
         else:
             # self.send_counter += 1
-            print("{}:发送了___{}".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
+            print("{}:发送了——{}".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
 
     # 接收
     def recv_(self):
@@ -67,7 +67,7 @@ class SocketClient(object):
                 self.message_buf = self.message_buf[msg_len:]
                 msg = str(binascii.b2a_hex(msg))[2:-1]
                 msg = re.sub(r'(?<=\w)(?=(?:\w\w)+$)', " ", msg).upper()
-                print("{}接收到___{} ".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
+                print("{}接收到——{} ".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
                 # self.recv_counter += 1
                 recv_que.put(msg)
         except Exception:
@@ -107,7 +107,7 @@ class HttpClinet(object):
 
     # 连接服务器初始化（往服务器发送请求）以及其他配置
     def __init__(self):
-        pass
+        self.http_ip = config.options.get("server_ip") + ':' + config.options.get('server_port')
 
     # get请求
     def get_(self):
@@ -144,7 +144,6 @@ class SuperClinet(SocketClient, HttpClinet):
         super().__init__()  # init Httpclinet
         super(SocketClient, self).__init__()  # init Socketclient
         self.connection_()
-        self.send('12')
 
 
 if __name__ == '__main__':
