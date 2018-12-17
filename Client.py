@@ -176,7 +176,11 @@ class HttpClinet(object):
             return None
 
     # 心跳请求
-    def alive(self):
+    def Bs_alive(self):
+        pass
+
+    # 标签心跳
+    def Tg_alive(self):
         pass
 
     # action请求
