@@ -6,18 +6,24 @@ del
 客户端
 """
 import binascii
+import json
 import re
+import sys
 import threading
 import time
+
+import requests
 
 import config
 import socket
 import queue
 from concurrent.futures import ThreadPoolExecutor as Pool
 
-send_que = queue.Queue()
-recv_que = queue.Queue()
-Message_buf = bytes()
+send_que = queue.Queue()  # 发送队列
+recv_que = queue.Queue()  # 接收队列
+Message_buf = bytes()  # 消息buf
+lock = threading.Lock()  # 线程锁
+tags = list()
 
 
 # socket客户端
@@ -26,13 +32,14 @@ class SocketClient(object):
 
     # 连接服务器初始化以及其他配置
     def __init__(self):
-        self.message_buf = bytes()
-        self.TCP_SOCKET = socket.socket()
-        self.SocketConnection = False
+        self.message_buf = bytes()  # 初始化消息buf
+        self.TCP_SOCKET = socket.socket()  # 初始化Tcp_Socket
+        self.SocketConnection = False  # socket连接状态
         self.my_address = (socket.gethostbyname(socket.gethostname()), config.options.get("my_port"))  # 设置本地地址
         self.tcpserver_address = (config.options.get('socket_ip'), config.options.get('socket_port'))  # 设置tcpserver地址
+        self.connection_()  # 连接socket
 
-    # 发送
+    # 处理发送
     def send_(self):
         l = []
         try:
@@ -41,7 +48,7 @@ class SocketClient(object):
             l.append(obj)
             [obj.result() for obj in l]
         except Exception as es:
-            print('发送出现异常')
+            print('发送出现异常:' + es.args)
             # mainlog_.logger.info(es.args)
         else:
             threading.Timer(0, self.send_).start()
@@ -51,41 +58,39 @@ class SocketClient(object):
         try:
             self.TCP_SOCKET.send(bytes.fromhex(msg))
         except Exception as ex:
-            print(ex.args)
-            print("发送出错")
+            print("发送出错:" + ex.args)
         else:
-            # self.send_counter += 1
             print("{}:发送了——{}".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
 
-    # 接收
+    # 分割接收
     def recv_(self):
-        try:
-            if len(self.message_buf) > 0:
-                msg = self.message_buf[0:2]
-                msg_len = int.from_bytes(msg[1:], byteorder='big', signed=False) + 2
-                msg += self.message_buf[2:msg_len]
-                self.message_buf = self.message_buf[msg_len:]
-                msg = str(binascii.b2a_hex(msg))[2:-1]
-                msg = re.sub(r'(?<=\w)(?=(?:\w\w)+$)', " ", msg).upper()
-                print("{}接收到——{} ".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
-                # self.recv_counter += 1
-                recv_que.put(msg)
-        except Exception:
-            # self.rountdown_(3)
-            print('接收发生了异常')
-        else:
-            threading.Timer(0, self.recv_).start()
+        true = True
+        while true:
+            try:
+                if len(self.message_buf) > 0:
+                    msg = self.message_buf[0:2]
+                    msg_len = int.from_bytes(msg[1:], byteorder='big', signed=False) + 2
+                    msg += self.message_buf[2:msg_len]
+                    self.message_buf = self.message_buf[msg_len:]
+                    msg = str(binascii.b2a_hex(msg))[2:-1]
+                    msg = re.sub(r'(?<=\w)(?=(?:\w\w)+$)', " ", msg).upper()
+                    print("{}接收到——{} ".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
+                    recv_que.put(msg)
+            except Exception as es:
+                print('接收发生了异常:' + es.args)
+                true = False
 
     # 接收
     def recv(self):
-        try:
-            msg = self.TCP_SOCKET.recv(2048)
-            if msg != b'':
-                self.message_buf += msg
-        except Exception:
-            print("接收出错")
-        else:
-            threading.Timer(0, self.recv).start()
+        true = True
+        while true:
+            try:
+                msg = self.TCP_SOCKET.recv(2048)
+                if msg != b'':
+                    self.message_buf += msg
+            except Exception as es:
+                print("接收出错:" + es.args)
+                true = False
 
     # 连接
     def connection_(self):
@@ -94,28 +99,81 @@ class SocketClient(object):
             tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             tcp_socket.bind(self.my_address)
             tcp_socket.connect(self.tcpserver_address)
-        except Exception as ex:
-            print("\033[1;31m%s\033[1m" % "<<<Socket connection Succeeded>>")
+        except Exception:
+            print("\033[1;31m%s\033[1m" % "<<<Socket Connection Failed>>")
         else:
             self.TCP_SOCKET = tcp_socket
             self.SocketConnection = True
-            print("\033[1;32m%s\033[1m" % ">>Socket Connection Failed<<")
+            print("\033[1;32m%s\033[1m" % ">>Socket connection Succeeded<<")
 
 
 # Http客户端
 class HttpClinet(object):
 
-    # 连接服务器初始化（往服务器发送请求）以及其他配置
+    # 连接服务器初始化（往服务器发送请求）以及其他配置（上传基站，获取标签）
     def __init__(self):
-        self.http_ip = config.options.get("server_ip") + ':' + config.options.get('server_port')
+        global tags
+        self.ServerConnection = False
+        self.http_address = config.options.get("server_ip") + ':' + str(config.options.get('server_port'))
+        if self.post_(directory='/PostMyPortNo',
+                      parameters={'MyPortNo': config.myinfo.get('MyPortNo')}) is not None:  # 上传我的portno
+            parameter = {'First': config.myinfo.get('MyFirstTag'), 'Num': config.myinfo.get('MyTagNum'),
+                         'Type': config.myinfo.get('MyTagType')}  # 参数
+            req_data = self.get_(directory='/GetTag', parameters=parameter)
+            if req_data is not None:
+                tags = req_data.get('Msg')
+                self.ServerConnection = True
+                print("\033[1;32m%s\033[1m" % ">>Server Connection succeeded<<")
+            else:
+                input("\033[1;31m%s\033[1m" % "Server Connection Failed, press ENTER to exit...")
+                sys.exit()
+        else:
+            input("\033[1;31m%s\033[1m" % "Server Connection Failed, press ENTER to exit......")
+            sys.exit()
 
     # get请求
-    def get_(self):
-        pass
+    def get_(self, directory=None, parameters=None):
+        """
+        get请求服务器，返回值为数据
+        :param directory: 请求目录
+        :param parameters: 请求参数
+        :return:返回值为请求返回的的数据
+        """
+        try:
+            url = self.http_address + directory
+            lock.acquire()  # 加锁
+            req = requests.get(url, params=parameters)
+            lock.release()  # 解锁
+        except Exception as ex:
+            print("Get请求发生异常:" + ex.args)
+            return None
+        else:
+            if req.status_code == 200:
+                text = req.json()
+                return text
+            return None
 
     # post请求
-    def post_(self):
-        pass
+    def post_(self, directory=None, parameters=None):
+        """
+        post请求，请求服务器，返回值为数据
+        :param directory 请求目录
+        :param parameters: 参数
+        :return:返回值为请求返回的数据
+        """
+        try:
+            url = self.http_address + directory
+            lock.acquire()  # 加锁
+            req = requests.post(url=url, data=json.dumps(parameters), headers={'Content-Type': 'application/json'})
+            lock.release()  # 解锁
+        except Exception as ex:
+            print("Post请求发生异常:" + ex.args)
+            return None
+        else:
+            if req.status_code == 200:
+                text = req.json()
+                return text
+            return None
 
     # 心跳请求
     def alive(self):
@@ -141,9 +199,14 @@ class HttpClinet(object):
 # 客户端
 class SuperClinet(SocketClient, HttpClinet):
     def __init__(self):
+        print("\033[1;34m%s\033[1m" % "___System initialization____")
         super().__init__()  # init Httpclinet
         super(SocketClient, self).__init__()  # init Socketclient
-        self.connection_()
+        if self.SocketConnection is True and self.ServerConnection is True:
+            print("\033[1;32m%s\033[1m" % "____Initialization succeeded_____")
+        else:
+            input("\033[1;31m%s\033[1m" % 'Initialization failed,Please restart.Press ENTER to exit......')
+            sys.exit()
 
 
 if __name__ == '__main__':
