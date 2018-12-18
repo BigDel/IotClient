@@ -23,8 +23,8 @@ send_que = queue.Queue()  # 发送队列
 recv_que = queue.Queue()  # 接收队列
 Message_buf = bytes()  # 消息buf
 lock = threading.Lock()  # 线程锁
-idle_tags = list()  # 标签列表
-job_tags = list()
+idle_tags = list()  # 空闲标签列表
+job_tags = list()  # 工作的标签
 pool = Pool()  # 线程池
 
 
@@ -155,6 +155,12 @@ class HttpClinet(object):
                 text = req.json()
                 return text
 
+    # 多线程Get请求
+    def gets_(self, directory=None, parameters=None):
+        value = self.get_(directory, parameters)
+        if value is not None:
+            send_que.put(value.get('Msg'))
+
     # post请求
     def post_(self, directory=None, parameters=None):
         """
@@ -193,7 +199,7 @@ class HttpClinet(object):
         for tag in idle_tags:
             para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
                     'dataType': config.datatype.get('TgHb'), 'modes': '00'}
-            obj = pool.submit(self.get_, req_dir, para)
+            obj = pool.submit(self.gets_, req_dir, para)
             l.append(obj)
         [obj.result() for obj in l]
         threading.Timer(config.polling_time.get('GetTgHb'), self.Tg_alive).start()
@@ -218,6 +224,12 @@ class HttpClinet(object):
         l = []
         req_dir = '/GetData'
         for tag in job_tags:
+            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
+                    'dataType': config.datatype.get('TgDt')}
+            obj = pool.submit(self.gets_, req_dir, para)
+            l.append(obj)
+        [obj.result() for obj in l]
+        threading.Timer(config.polling_time.get('GetTgDt'), self.datas_).start()
 
     # 控制器
     def controller(self):
