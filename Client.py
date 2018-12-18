@@ -218,12 +218,18 @@ class HttpClinet(object):
 
     # 事件请求
     def event(self, tags):
-        req_dir = '/GetEvent'
-        for tag in tags:
-            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': 1, 'dataType': config.datatype.get('TgEvt'),
+        if tags:
+            l = []
+            req_dir = '/GetEvent'
+            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'dataType': config.datatype.get('TgEvt'),
                     'event': '01'}
             if tags is not job_tags:
                 para.update({'event': '02'})
+            for tag in tags:
+                para.update({'tagPortNo': tag})
+                obj = pool.submit(self.gets_, req_dir, para)
+                l.append(obj)
+            [obj.result() for obj in l]
 
     # 数据请求
     def datas_(self):
@@ -239,6 +245,18 @@ class HttpClinet(object):
 
     # 控制器
     def controller(self):
+        pass
+
+    # 输液模式
+    def infusion_mode(self):
+        pass
+
+    # 冷链模式
+    def cold_chain_mode(self):
+        pass
+
+    # 体温模式
+    def temperature_mode(self):
         pass
 
 
