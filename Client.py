@@ -23,21 +23,23 @@ send_que = queue.Queue()  # 发送队列
 recv_que = queue.Queue()  # 接收队列
 Message_buf = bytes()  # 消息buf
 lock = threading.Lock()  # 线程锁
-tags = list()
+idle_tags = list()  # 标签列表
+job_tags = list()
+pool = Pool()  # 线程池
 
 
 # socket客户端
 # noinspection PyTypeChecker
 class SocketClient(object):
 
-    # 连接服务器初始化以及其他配置
+    # 连接服务器初始化以及其他配置（初始化Socket连接）
     def __init__(self):
         self.message_buf = bytes()  # 初始化消息buf
         self.TCP_SOCKET = socket.socket()  # 初始化Tcp_Socket
         self.SocketConnection = False  # socket连接状态
         self.my_address = (socket.gethostbyname(socket.gethostname()), config.options.get("my_port"))  # 设置本地地址
         self.tcpserver_address = (config.options.get('socket_ip'), config.options.get('socket_port'))  # 设置tcpserver地址
-        self.connection_()
+        self.connection_()  # 初始化连接
 
     # 发送
     def send_(self):
@@ -112,7 +114,7 @@ class HttpClinet(object):
 
     # 连接服务器初始化（往服务器发送请求）以及其他配置（上传基站，获取标签）
     def __init__(self):
-        global tags
+        global idle_tags
         self.ServerConnection = False
         self.http_address = config.options.get("server_ip") + ':' + str(config.options.get('server_port'))
         if self.post_(directory='/PostMyPortNo',
@@ -121,7 +123,7 @@ class HttpClinet(object):
                          'Type': config.myinfo.get('MyTagType')}  # 参数
             req_data = self.get_(directory='/GetTag', parameters=parameter)
             if req_data is not None:
-                tags = req_data.get('Msg')
+                idle_tags = req_data.get('Msg')
                 self.ServerConnection = True
                 print("\033[1;32m%s\033[1m" % ">>Server Connection succeeded<<")
             else:
@@ -145,13 +147,13 @@ class HttpClinet(object):
             req = requests.get(url, params=parameters)
             lock.release()  # 解锁
         except Exception as ex:
+            lock.release()  # 解锁
             print("Get请求发生异常:" + ex.args)
             return None
         else:
             if req.status_code == 200:
                 text = req.json()
                 return text
-            return None
 
     # post请求
     def post_(self, directory=None, parameters=None):
@@ -167,21 +169,46 @@ class HttpClinet(object):
             req = requests.post(url=url, data=json.dumps(parameters), headers={'Content-Type': 'application/json'})
             lock.release()  # 解锁
         except Exception as ex:
+            lock.release()  # 解锁
             print("Post请求发生异常:" + ex.args)
             return None
         else:
             if req.status_code == 200:
                 text = req.json()
                 return text
-            return None
 
-    # 心跳请求
-    def alive(self):
-        pass
+    # 基站心跳请求
+    def Bs_alive(self):
+        req_dir = '/GetHb'  # 请求目录
+        para = {'myPortNo': config.myinfo.get('MyPortNo'), 'dataType': config.datatype.get('BsHb')}  # 请求参数
+        value = self.get_(directory=req_dir, parameters=para)
+        if value is not None:
+            send_que.put(value['Msg'])  # 将数据存入发送队列
+        threading.Timer(config.polling_time.get('GetBsHb'), self.Bs_alive).start()  # 每隔15S进行获取一次
+
+    # 标签心跳请求
+    def Tg_alive(self):
+        l = []
+        req_dir = '/GetHb'
+        for tag in idle_tags:
+            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
+                    'dataType': config.datatype.get('TgHb'), 'modes': '00'}
+            obj = pool.submit(self.get_, req_dir, para)
+            l.append(obj)
+        [obj.result() for obj in l]
+        threading.Timer(config.polling_time.get('GetTgHb'), self.Tg_alive).start()
 
     # action请求
     def action(self):
-        pass
+        l = []
+        req_dir = '/GetEvent'
+        for tag in idle_tags:
+            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
+                    'dataType': config.datatype.get('Action')}
+            value = self.get_(directory=req_dir, parameters=para)
+            if value is not None:
+                send_que.put(value['Msg'])
+                time.sleep(1)
 
     # 事件请求
     def event(self):

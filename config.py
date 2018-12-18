@@ -32,5 +32,16 @@ datatype = {
     'TgEvt': '4',  # 标签事件
     'RespGtSer': '5',  # 获取参数返回
     'RespStSer': '6',  # 设置参数返回
-    'HrMe': '7'  # 下达用药数据
+    'HrMe': '7'  # 下达用药数据返回
+}
+# 轮询时间 单位m(秒)
+polling_time = {
+    'GetBsHb': 15,
+    'GetTgHb': 15,
+    'GetTgAction': 1,
+    'GetTgDt': 12,
+    'GetTgEvt': 0,
+    'GetRespGtSer': 0,
+    'GetRespStSer': 0,
+    'GetHrMe': 0
 }
