@@ -27,6 +27,12 @@ idle_tags = list()  # 空闲标签列表
 job_tags = list()  # 工作的标签
 online_tags = list()  # 在线的标签
 pool = Pool()  # 线程池
+# 计数器c
+counter = {
+    'send': 0,
+    'recv': 0,
+    'tghb': 0,
+}
 
 
 # socket客户端
@@ -245,7 +251,7 @@ class HttpClinet(object):
 
     # 控制器
     def controller(self):
-        pass
+        self.Bs_alive()  # 基站心跳
 
     # 输液模式
     def infusion_mode(self):
@@ -253,7 +259,8 @@ class HttpClinet(object):
 
     # 冷链模式
     def cold_chain_mode(self):
-        pass
+        self.action()  # action请求
+        self.datas_()  # 请求数据
 
     # 体温模式
     def temperature_mode(self):
