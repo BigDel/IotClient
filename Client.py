@@ -25,6 +25,7 @@ Message_buf = bytes()  # 消息buf
 lock = threading.Lock()  # 线程锁
 idle_tags = list()  # 空闲标签列表
 job_tags = list()  # 工作的标签
+online_tags = list()  # 在线的标签
 pool = Pool()  # 线程池
 
 
@@ -196,7 +197,7 @@ class HttpClinet(object):
     def Tg_alive(self):
         l = []
         req_dir = '/GetHb'
-        for tag in idle_tags:
+        for tag in online_tags:
             para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
                     'dataType': config.datatype.get('TgHb'), 'modes': '00'}
             obj = pool.submit(self.gets_, req_dir, para)
@@ -213,11 +214,16 @@ class HttpClinet(object):
             value = self.get_(directory=req_dir, parameters=para)
             if value is not None:
                 send_que.put(value['Msg'])
-                time.sleep(1)
+                time.sleep(1)  # 同一个基站1S发送一个Action请求
 
     # 事件请求
-    def event(self):
-        pass
+    def event(self, tags):
+        req_dir = '/GetEvent'
+        for tag in tags:
+            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': 1, 'dataType': config.datatype.get('TgEvt'),
+                    'event': '01'}
+            if tags is not job_tags:
+                para.update({'event': '02'})
 
     # 数据请求
     def datas_(self):
