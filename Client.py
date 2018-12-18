@@ -252,6 +252,13 @@ class HttpClinet(object):
     # 控制器
     def controller(self):
         self.Bs_alive()  # 基站心跳
+        if config.myinfo.get('MyTagType') is 'Infusion':
+            pass
+        elif config.myinfo.get('MyTagType') is 'Temperature':
+            pass
+        elif config.myinfo.get('MyTagType') is 'One-pieceColdChain' or config.myinfo.get(
+                'MyTagType') is 'ProbeTypeColdChain':
+            self.cold_chain_mode()  # 冷链模式
 
     # 输液模式
     def infusion_mode(self):
