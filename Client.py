@@ -200,7 +200,6 @@ class HttpClinet(object):
 
     # action请求
     def action(self):
-        l = []
         req_dir = '/GetEvent'
         for tag in idle_tags:
             para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
@@ -216,7 +215,9 @@ class HttpClinet(object):
 
     # 数据请求
     def datas_(self):
-        pass
+        l = []
+        req_dir = '/GetData'
+        for tag in job_tags:
 
     # 控制器
     def controller(self):
