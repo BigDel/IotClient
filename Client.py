@@ -11,9 +11,7 @@ import re
 import sys
 import threading
 import time
-
 import requests
-
 import config
 import socket
 import queue
@@ -114,6 +112,13 @@ class SocketClient(object):
             self.TCP_SOCKET = tcp_socket
             self.SocketConnection = True
             print("\033[1;32m%s\033[1m" % ">>Socket connection Succeeded<<")
+
+    # 接收数据处理
+    def recv_data_studio(self):
+        msg = recv_que.get()
+        if msg is not None:
+            pass
+        threading.Timer(0, self.recv_data_studio).start()
 
 
 # Http客户端
