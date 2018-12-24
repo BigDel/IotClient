@@ -113,13 +113,6 @@ class SocketClient(object):
             self.SocketConnection = True
             print("\033[1;32m%s\033[1m" % ">>Socket connection Succeeded<<")
 
-    # 接收数据处理
-    def recv_data_studio(self):
-        msg = recv_que.get()
-        if msg is not None:
-            pass
-        threading.Timer(0, self.recv_data_studio).start()
-
 
 # Http客户端
 class HttpClinet(object):
@@ -208,12 +201,13 @@ class HttpClinet(object):
     def Tg_alive(self):
         l = []
         req_dir = '/GetHb'
-        for tag in online_tags:
-            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
-                    'dataType': config.datatype.get('TgHb'), 'modes': '00'}
-            obj = pool.submit(self.gets_, req_dir, para)
-            l.append(obj)
-        [obj.result() for obj in l]
+        if online_tags:
+            for tag in online_tags:
+                para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
+                        'dataType': config.datatype.get('TgHb'), 'modes': '00'}
+                obj = pool.submit(self.gets_, req_dir, para)
+                l.append(obj)
+            [obj.result() for obj in l]
         threading.Timer(config.polling_time.get('GetTgHb'), self.Tg_alive).start()
 
     # action请求
@@ -253,6 +247,20 @@ class HttpClinet(object):
             l.append(obj)
         [obj.result() for obj in l]
         threading.Timer(config.polling_time.get('GetTgDt'), self.datas_).start()
+
+    # 接收数据处理
+    def recv_data_studio(self):
+        msg = recv_que.get()
+        if msg is not None:
+            msg = msg.replace(' ', '')
+            if msg[4:6] == "A2":
+                online_tags.append(msg[14:22])
+            else:
+                req_dir = '/PostMyMsg'  # 请求目录
+                ret_msg = self.post_(req_dir, msg)
+                if ret_msg is not None:
+                    send_que.put(ret_msg)
+        threading.Timer(0, self.recv_data_studio).start()
 
     # 控制器
     def controller(self):
