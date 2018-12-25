@@ -252,7 +252,7 @@ class HttpClinet(object):
     def recv_data_studio(self):
         msg = recv_que.get()  # 接收的数据
         if msg is not None:
-            msg = msg.replace(' ', '')
+            msg = msg.replace(' ', '')  # 去除空格
             datatype = None
             command_type = msg[4:6]  # 事件代码
             my_portno = msg[6:14]  # 基站portno
