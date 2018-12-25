@@ -253,13 +253,23 @@ class HttpClinet(object):
         msg = recv_que.get()
         if msg is not None:
             msg = msg.replace(' ', '')
-            if msg[4:6] == "A2":
+            command_type = msg[4:6]
+            bs_portno = msg[6:14]
+            tag_portno = msg[14:22]
+            if command_type == "A2":
                 online_tags.append(msg[14:22])
-            else:
-                req_dir = '/PostMyMsg'  # 请求目录
-                ret_msg = self.post_(req_dir, msg)
-                if ret_msg is not None:
-                    send_que.put(ret_msg)
+                return
+            elif command_type == "A8":  # 获取参数返回，，，，，目前有问题
+                datatype = 5
+            elif command_type == "A9":  # 设置参数返回，，，目前有问题
+                datatype = 6
+            elif command_type == "AA":  # 下达用药数据返回
+                datatype = 7
+            parameter = {'myPortNo': bs_portno, 'tagPortNo': tag_portno, 'dataType': datatype}  # 参数
+            req_dir = '/PostData'  # 请求目录
+            ret_msg = self.post_(req_dir, parameter)
+            if ret_msg is not None:
+                send_que.put(ret_msg)
         threading.Timer(0, self.recv_data_studio).start()
 
     # 控制器
