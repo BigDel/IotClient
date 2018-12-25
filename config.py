@@ -11,7 +11,7 @@ options = {
     'server_ip': 'http://127.0.0.1',
     'server_port': 8888,
     'socket_ip': '10.10.1.20',
-    'socket_port': 6001,
+    'socket_port': 6000,
     'my_port': 3000
 }
 
@@ -20,7 +20,7 @@ myinfo = {
     'MyPortNo': '75654321',
     'MyTagNum': 30,
     'MyFirstTag': '81654321',
-    'MyTagType': 'Infusion',  # Temperature,One-pieceColdChain,ProbeTypeColdChain
+    'MyTagType': 'ProbeTypeColdChain',  # Infusion,Temperature,One-pieceColdChain,ProbeTypeColdChain
 }
 
 # 数据类型

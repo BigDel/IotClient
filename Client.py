@@ -51,7 +51,7 @@ class SocketClient(object):
         l = []
         try:
             msg = send_que.get()
-            obj = Pool.submit(self.send, msg)
+            obj = Pool.submit(self.send(msg))
             l.append(obj)
             [obj.result() for obj in l]
         except Exception as es:
@@ -275,7 +275,6 @@ class HttpClinet(object):
 
     # 控制器
     def controller(self):
-        self.Bs_alive()  # 基站心跳
         if config.myinfo.get('MyTagType') is 'Infusion':
             pass
         elif config.myinfo.get('MyTagType') is 'Temperature':
@@ -309,6 +308,22 @@ class SuperClinet(SocketClient, HttpClinet):
         else:
             input("\033[1;31m%s\033[1m" % 'Initialization failed,Please restart.Press ENTER to exit......')
             sys.exit()
+        thread = []
+        try:
+            t1 = threading.Thread(target=self.send_)
+            # t2 = threading.Thread(target=self.recv)
+            # t3 = threading.Thread(target=self.recv_)
+            t4 = threading.Thread(target=self.controller)
+            t5 = threading.Thread(target=self.Bs_alive)
+            thread.append(t1)
+            # thread.append(t2)
+            # thread.append(t3)
+            thread.append(t4)
+            thread.append(t5)
+            for t in thread:
+                t.start()
+        except Exception as e:
+            print(e)
 
 
 if __name__ == '__main__':
