@@ -18,7 +18,7 @@ options = {
 # 基站的信息
 myinfo = {
     'MyPortNo': '75654321',
-    'MyTagNum': 30,
+    'MyTagNum': 100,
     'MyFirstTag': '81654321',
     'MyTagType': 'ProbeTypeColdChain',  # Infusion,Temperature,One-pieceColdChain,ProbeTypeColdChain
 }

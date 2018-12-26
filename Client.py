@@ -31,6 +31,10 @@ counter = {
     'recv': 0,
     'tghb': 0,
 }
+# 标记数据
+mark = {
+    'myalive': False
+}
 
 
 # socket客户端
@@ -47,27 +51,18 @@ class SocketClient(object):
         self.connection_()  # 初始化连接
 
     # 发送
-    def send_(self):
+    def send(self):
         l = []
         try:
             msg = send_que.get()
-            obj = Pool.submit(self.send(msg))
+            obj = pool.submit(self.TCP_SOCKET.send, bytes.fromhex(msg))
             l.append(obj)
             [obj.result() for obj in l]
-        except Exception as es:
-            print('发送出现异常:' + es.args)
-            # mainlog_.logger.info(es.args)
-        else:
-            threading.Timer(0, self.send_).start()
-
-    # 发送
-    def send(self, msg):
-        try:
-            self.TCP_SOCKET.send(bytes.fromhex(msg))
         except Exception as ex:
             print("发送出错:" + ex.args)
         else:
             print("{}:发送了——{}".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
+        threading.Timer(0, self.send).start()
 
     # 接收
     def recv_(self):
@@ -89,15 +84,14 @@ class SocketClient(object):
 
     # 接收
     def recv(self):
-        true = True
-        while true:
-            try:
-                msg = self.TCP_SOCKET.recv(2048)
-                if msg != b'':
-                    self.message_buf += msg
-            except Exception as es:
-                print("接收出错:" + es.args)
-                true = False
+        try:
+            msg = self.TCP_SOCKET.recv(2048)
+            if msg != b'':
+                self.message_buf += msg
+        except Exception as es:
+            print("接收出错:" + es.args)
+        else:
+            threading.Timer(0, self.recv).start()
 
     # 连接
     def connection_(self):
@@ -190,11 +184,15 @@ class HttpClinet(object):
 
     # 基站心跳请求
     def Bs_alive(self):
-        req_dir = '/GetHb'  # 请求目录
-        para = {'myPortNo': config.myinfo.get('MyPortNo'), 'dataType': config.datatype.get('BsHb')}  # 请求参数
-        value = self.get_(directory=req_dir, parameters=para)
-        if value is not None:
-            send_que.put(value['Msg'])  # 将数据存入发送队列
+        if mark.get('myalive') is False:
+            req_dir = '/GetHb'  # 请求目录
+            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'dataType': config.datatype.get('BsHb')}  # 请求参数
+            value = self.get_(directory=req_dir, parameters=para)
+            if value is not None:
+                send_que.put(value['Msg'])  # 将数据存入发送队列
+                mark.update({'myalive': value['Msg']})
+        else:
+            send_que.put(mark.get('myalive'))
         threading.Timer(config.polling_time.get('GetBsHb'), self.Bs_alive).start()  # 每隔15S进行获取一次
 
     # 标签心跳请求
@@ -212,14 +210,16 @@ class HttpClinet(object):
 
     # action请求
     def action(self):
-        req_dir = '/GetEvent'
-        for tag in idle_tags:
-            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
-                    'dataType': config.datatype.get('Action')}
-            value = self.get_(directory=req_dir, parameters=para)
-            if value is not None:
-                send_que.put(value['Msg'])
-                time.sleep(1)  # 同一个基站1S发送一个Action请求
+        if idle_tags:
+            req_dir = '/GetEvent'
+            for tag in idle_tags:
+                para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
+                        'dataType': config.datatype.get('Action')}
+                value = self.get_(directory=req_dir, parameters=para)
+                if value is not None:
+                    send_que.put(value['Msg'])
+            # 同一个基站1S发送一个Action请求
+            threading.Timer(1, self.action).start()
 
     # 事件请求
     def event(self, tags):
@@ -238,14 +238,15 @@ class HttpClinet(object):
 
     # 数据请求
     def datas_(self):
-        l = []
-        req_dir = '/GetData'
-        for tag in job_tags:
-            para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
-                    'dataType': config.datatype.get('TgDt')}
-            obj = pool.submit(self.gets_, req_dir, para)
-            l.append(obj)
-        [obj.result() for obj in l]
+        if job_tags:
+            l = []
+            req_dir = '/GetData'
+            for tag in job_tags:
+                para = {'myPortNo': config.myinfo.get('MyPortNo'), 'tagPortNo': tag,
+                        'dataType': config.datatype.get('TgDt')}
+                obj = pool.submit(self.gets_, req_dir, para)
+                l.append(obj)
+            [obj.result() for obj in l]
         threading.Timer(config.polling_time.get('GetTgDt'), self.datas_).start()
 
     # 接收数据处理
@@ -258,7 +259,11 @@ class HttpClinet(object):
             my_portno = msg[6:14]  # 基站portno
             tag_portno = msg[14:22]  # 标签portno
             if command_type == "A2":
-                online_tags.append(msg[14:22])
+                online_tags.append(tag_portno)
+                idle_tags.remove(tag_portno)
+                if config.myinfo.get('MyTagType') == 'ProbeTypeColdChain' or config.myinfo.get(
+                        'MyTagType') == 'One-pieceColdChain':
+                    job_tags.append(tag_portno)
                 threading.Timer(0, self.recv_data_studio).start()
             elif command_type == "A8":  # 获取参数返回，，，，，目前有问题
                 datatype = 5
@@ -276,9 +281,9 @@ class HttpClinet(object):
     # 控制器
     def controller(self):
         if config.myinfo.get('MyTagType') is 'Infusion':
-            pass
+            self.infusion_mode()  # 输液模式
         elif config.myinfo.get('MyTagType') is 'Temperature':
-            pass
+            self.temperature_mode()  # 体温模式
         elif config.myinfo.get('MyTagType') is 'One-pieceColdChain' or config.myinfo.get(
                 'MyTagType') is 'ProbeTypeColdChain':
             self.cold_chain_mode()  # 冷链模式
@@ -289,7 +294,6 @@ class HttpClinet(object):
 
     # 冷链模式
     def cold_chain_mode(self):
-        self.action()  # action请求
         self.datas_()  # 请求数据
 
     # 体温模式
@@ -310,16 +314,20 @@ class SuperClinet(SocketClient, HttpClinet):
             sys.exit()
         thread = []
         try:
-            t1 = threading.Thread(target=self.send_)
-            # t2 = threading.Thread(target=self.recv)
-            # t3 = threading.Thread(target=self.recv_)
+            t1 = threading.Thread(target=self.send)
+            t2 = threading.Thread(target=self.Bs_alive)
+            t3 = threading.Thread(target=self.action)
             t4 = threading.Thread(target=self.controller)
-            t5 = threading.Thread(target=self.Bs_alive)
+            t5 = threading.Thread(target=self.recv)
+            t6 = threading.Thread(target=self.recv_)
+            t7 = threading.Thread(target=self.recv_data_studio)
             thread.append(t1)
-            # thread.append(t2)
-            # thread.append(t3)
+            thread.append(t2)
+            thread.append(t3)
             thread.append(t4)
             thread.append(t5)
+            thread.append(t6)
+            thread.append(t7)
             for t in thread:
                 t.start()
         except Exception as e:
