@@ -2,7 +2,7 @@ import socket
 
 # 创建服务端的socket对象socketserver
 socketserver = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-host = '10.10.1.20'
+host = '127.0.0.1'
 port = 6000
 # 绑定地址（包括ip地址会端口号）
 socketserver.bind((host, port))

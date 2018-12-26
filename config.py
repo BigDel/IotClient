@@ -10,7 +10,7 @@ del
 options = {
     'server_ip': 'http://127.0.0.1',
     'server_port': 8888,
-    'socket_ip': '10.10.1.20',
+    'socket_ip': '127.0.0.1',
     'socket_port': 6000,
     'my_port': 3000
 }

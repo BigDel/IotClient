@@ -142,11 +142,11 @@ class HttpClinet(object):
         """
         try:
             url = self.http_address + directory
-            lock.acquire()  # 加锁
+            # lock.acquire()  # 加锁
             req = requests.get(url, params=parameters)
-            lock.release()  # 解锁
+            # lock.release()  # 解锁
         except Exception as ex:
-            lock.release()  # 解锁
+            # lock.release()  # 解锁
             print("Get请求发生异常:" + ex.args)
             return None
         else:
@@ -170,11 +170,11 @@ class HttpClinet(object):
         """
         try:
             url = self.http_address + directory
-            lock.acquire()  # 加锁
+            # lock.acquire()  # 加锁
             req = requests.post(url=url, data=json.dumps(parameters), headers={'Content-Type': 'application/json'})
-            lock.release()  # 解锁
+            # lock.release()  # 解锁
         except Exception as ex:
-            lock.release()  # 解锁
+            # lock.release()  # 解锁
             print("Post请求发生异常:" + ex.args)
             return None
         else:
@@ -218,8 +218,8 @@ class HttpClinet(object):
                 value = self.get_(directory=req_dir, parameters=para)
                 if value is not None:
                     send_que.put(value['Msg'])
-            # 同一个基站1S发送一个Action请求
-            threading.Timer(1, self.action).start()
+                time.sleep(1)# 同一个基站1S发送一个Action请求
+        threading.Timer(0, self.action).start()
 
     # 事件请求
     def event(self, tags):
