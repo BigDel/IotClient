@@ -122,7 +122,7 @@ class HttpClinet(object):
                          'Type': config.myinfo.get('MyTagType')}  # 参数
             req_data = self.get_(directory='/GetTag', parameters=parameter)
             if req_data is not None:
-                idle_tags = req_data.get('Msg')
+                idle_tags = req_data.get('Tags')
                 self.ServerConnection = True
                 print("\033[1;32m%s\033[1m" % ">>Server Connection succeeded<<")
             else:
@@ -218,7 +218,7 @@ class HttpClinet(object):
                 value = self.get_(directory=req_dir, parameters=para)
                 if value is not None:
                     send_que.put(value['Msg'])
-                time.sleep(1)# 同一个基站1S发送一个Action请求
+                time.sleep(1)  # 同一个基站1S发送一个Action请求
         threading.Timer(0, self.action).start()
 
     # 事件请求
@@ -255,6 +255,7 @@ class HttpClinet(object):
         if msg is not None:
             msg = msg.replace(' ', '')  # 去除空格
             datatype = None
+            get_on_off = False
             command_type = msg[4:6]  # 事件代码
             my_portno = msg[6:14]  # 基站portno
             tag_portno = msg[14:22]  # 标签portno
@@ -264,18 +265,21 @@ class HttpClinet(object):
                 if config.myinfo.get('MyTagType') == 'ProbeTypeColdChain' or config.myinfo.get(
                         'MyTagType') == 'One-pieceColdChain':
                     job_tags.append(tag_portno)
-                threading.Timer(0, self.recv_data_studio).start()
             elif command_type == "A8":  # 获取参数返回，，，，，目前有问题
                 datatype = 5
+                get_on_off = True
             elif command_type == "A9":  # 设置参数返回，，，目前有问题
                 datatype = 6
+                get_on_off = True
             elif command_type == "AA":  # 下达用药数据返回
                 datatype = 7
-            parameter = {'myPortNo': my_portno, 'tagPortNo': tag_portno, 'dataType': datatype}  # 参数
-            req_dir = '/PostData'  # 请求目录
-            ret_msg = self.post_(req_dir, parameter)
-            if ret_msg is not None:
-                send_que.put(ret_msg)  # 存入队列
+                get_on_off = True
+            if get_on_off:
+                parameter = {'myPortNo': my_portno, 'tagPortNo': tag_portno, 'dataType': datatype}  # 参数
+                req_dir = '/PostData'  # 请求目录
+                ret_msg = self.post_(req_dir, parameter)
+                if ret_msg is not None:
+                    send_que.put(ret_msg)  # 存入队列
         threading.Timer(0, self.recv_data_studio).start()
 
     # 控制器
