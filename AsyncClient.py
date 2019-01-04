@@ -9,7 +9,9 @@ import binascii
 import json
 import sys
 import threading
+import datetime
 import time
+
 import config
 import socket
 import queue
@@ -63,7 +65,7 @@ class SocketClient(object):
         except Exception as ex:
             print("发送出错:" + ex.args)
         else:
-            print("{}:发送了——{}".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
+            print("{}:发送了——{}".format(datetime.datetime.now(), msg))
         threading.Timer(0, self.send).start()
 
     # 接收分割  单线程
@@ -77,10 +79,11 @@ class SocketClient(object):
                 msg = (str(binascii.b2a_hex(msg))[2:-1]).upper()
                 # msg = re.sub(r'(?<=\w)(?=(?:\w\w)+$)', " ", msg).upper()
                 # msg = msg.upper()
-                print("{}接收到——{} ".format(time.strftime("%F %H:%M:%S", time.localtime()), msg))
+                print("{}接收到——{} :".format(datetime.datetime.now(), msg))
                 recv_que.put(msg)
         except Exception as es:
             print('接收发生了异常:' + es.args)
+            print(es.args)
         threading.Timer(0, self.recv_).start()
 
     # 接收
@@ -91,6 +94,7 @@ class SocketClient(object):
                 self.message_buf += msg
         except Exception as es:
             print("接收出错:" + es.args)
+            print(es.args)
         threading.Timer(0, self.recv).start()
 
     # 连接
@@ -100,8 +104,9 @@ class SocketClient(object):
             tcp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             tcp_socket.bind(self.my_address)
             tcp_socket.connect(self.tcpserver_address)
-        except Exception:
+        except Exception as es:
             print("\033[1;31m%s\033[1m" % "<<<Socket Connection Failed>>")
+            print(es.args)
         else:
             self.TCP_SOCKET = tcp_socket
             self.SocketConnection = True
@@ -130,9 +135,7 @@ class HttpClinet(object):
     async def get_(self, str_url):
         """
         get请求服务器，返回值为数据
-        :param str_url:
-        :param parmenters: 请求内容
-        :param directory: 请求目录
+        :param str_url: 请求地址
         :return:返回值为请求返回的的数据
         """
         global idle_tags
@@ -249,8 +252,7 @@ class HttpClinet(object):
             [obj.result() for obj in l]
         threading.Timer(config.polling_time.get('GetTgDt'), self.datas_).start()
 
-        # 接收数据处理
-
+    # 接收数据处理
     def recv_data_studio(self):
         msg = recv_que.get()  # 接收的数据
         if msg is not None:
@@ -262,7 +264,10 @@ class HttpClinet(object):
             tag_portno = msg[14:22]  # 标签portno
             if command_type == "A2":
                 online_tags.append(tag_portno)
-                idle_tags.remove(tag_portno)
+                try:
+                    idle_tags.remove(tag_portno)
+                except ValueError:
+                    pass  # 当删除的数据不存在的时候忽略掉
                 if config.myinfo.get('MyTagType') == 'ProbeTypeColdChain' or config.myinfo.get(
                         'MyTagType') == 'One-pieceColdChain':
                     job_tags.append(tag_portno)
@@ -318,6 +323,8 @@ class SuperClinet(SocketClient, HttpClinet):
         else:
             input("\033[1;31m%s\033[1m" % 'Initialization failed,Please restart.Press ENTER to exit......')
             sys.exit()
+
+    def main(self):
         thread = []
         try:
             t1 = threading.Thread(target=self.send)
@@ -341,4 +348,5 @@ class SuperClinet(SocketClient, HttpClinet):
 
 
 if __name__ == '__main__':
-    a = SuperClinet()
+    client = SuperClinet()
+    client.main()
