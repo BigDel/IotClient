@@ -212,8 +212,11 @@ class HttpClinet(object):
                     'MyPortNo') + '&tagPortNo=' + tag + '&dataType=' + config.datatype.get('TgHb') + '&modes=00'
                 obj = pool.submit(self.gets_, url)
                 l.append(obj)
-        [obj.result() for obj in l]
-        threading.Timer(config.polling_time.get('GetTgHb'), self.Tg_alive).start()
+            [obj.result() for obj in l]
+        if config.myinfo.get('MyTagType') is 'Temperature':  # 体温心跳是6S一次
+            threading.Timer(6, self.Tg_alive).start()
+        else:
+            threading.Timer(config.polling_time.get('GetTgHb'), self.Tg_alive).start()
 
     # action请求
     def action(self):
@@ -300,7 +303,6 @@ class HttpClinet(object):
 
     # 输液模式
     def infusion_mode(self):
-
         pass
 
     # 冷链模式
@@ -334,6 +336,9 @@ class SuperClinet(SocketClient, HttpClinet):
             t5 = threading.Thread(target=self.recv)
             t6 = threading.Thread(target=self.recv_)
             t7 = threading.Thread(target=self.recv_data_studio)
+            if config.myinfo.get('MyTagType') is 'Temperature':  # 体温模式心跳数据加体温数据
+                tx = threading.Thread(target=self.Tg_alive)
+                thread.append(tx)
             thread.append(t1)
             thread.append(t2)
             thread.append(t3)
