@@ -298,23 +298,23 @@ class HttpClinet(object):
         else:
             self.datas_()  # 冷链体温模式可以直接制造数据
 
-        # elif config.myinfo.get('MyTagType') is 'Temperature':
-        #     self.temperature_mode()  # 体温模式
-        # elif config.myinfo.get('MyTagType') is 'One-pieceColdChain' or config.myinfo.get(
-        #         'MyTagType') is 'ProbeTypeColdChain':
-        #     self.cold_chain_mode()  # 冷链模式
+# elif config.myinfo.get('MyTagType') is 'Temperature':
+#     self.temperature_mode()  # 体温模式
+# elif config.myinfo.get('MyTagType') is 'One-pieceColdChain' or config.myinfo.get(
+#         'MyTagType') is 'ProbeTypeColdChain':
+ #     self.cold_chain_mode()  # 冷链模式
 
     # 输液模式
     def infusion_mode(self):
         pass
 
-    # # 冷链模式
-    # def cold_chain_mode(self):
-    #     self.datas_()  # 请求数据
-    #
-    # # 体温模式
-    # def temperature_mode(self):
-    #     self.datas_()  # 请求体温数据
+# # 冷链模式
+# def cold_chain_mode(self):
+#     self.datas_()  # 请求数据
+#
+# # 体温模式
+# def temperature_mode(self):
+#     self.datas_()  # 请求体温数据
 
 
 # 客户端
